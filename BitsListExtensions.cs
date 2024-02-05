@@ -37,25 +37,30 @@ namespace Lab3DP
         {
             BitArray bitArr = new BitArray(bits.ToArray());
             bitArr.LeftShift(count);
-            bitArr.CopyTo(bits.ToArray(), 0);
-            return bits;
+            return bitArr.ToBitsList();
         }
         
         public static List<bool> RightShift(this List<bool> bits, int count)
         {
             BitArray bitArr = new BitArray(bits.ToArray());
             bitArr.RightShift(count);
-            bitArr.CopyTo(bits.ToArray(), 0);
-            return bits;
+            return bitArr.ToBitsList();
         }
 
         public static List<bool> Or(this List<bool> bits, List<bool> value)
         {
             BitArray bitArr1 = new BitArray(bits.ToArray());
             BitArray bitArr2 = new BitArray(value.ToArray());
-            bitArr1.Or(bitArr2)
-                   .CopyTo(bits.ToArray(), 0);
-            return bits;
+            bitArr1.Or(bitArr2);
+            return bitArr1.ToBitsList();
+        }
+        
+        public static List<bool> And(this List<bool> bits, List<bool> value)
+        {
+            BitArray bitArr1 = new BitArray(bits.ToArray());
+            BitArray bitArr2 = new BitArray(value.ToArray());
+            bitArr1.And(bitArr2);
+            return bitArr1.ToBitsList();
         }
 
         public static List<bool> Xor(this List<bool> bits, List<bool> value)

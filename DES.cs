@@ -13,12 +13,13 @@ namespace Lab3DP
         private int[] _iPTable = new int[64];
         private int[] _iPReverseTable = new int[64];
         private byte[] _key = [2, 3, 4, 5, 6, 7, 8, 11];
+        private int _blockSize = 64;
         // ключи раундов
         List<bool>[] _roundKeys = new List<bool>[16];
 
         // перестановка-выбор 1
         private int[] _pC1 = [57, 49, 41, 33, 25, 17, 9, 1, 58, 50, 42, 34, 26, 18, 10, 2, 59, 51, 43, 35, 27, 19, 11, 3, 60, 52, 44, 36, 63, 55, 47, 39, 31, 23, 15, 7, 62, 54, 46, 38, 30, 22, 14, 6, 61, 53, 45, 37, 29, 21, 13, 5, 28, 20, 12, 4];
-        // перестановка-выбор 1
+        // перестановка-выбор 2
         private int[] _pC2 = [14, 17, 11, 24, 1, 5, 3, 28, 15, 6, 21, 10, 23, 19, 12, 4, 26, 8, 16, 7, 27, 20, 13, 2, 41, 52, 31, 37, 47, 55, 30, 40, 51, 45, 33, 48, 44, 49, 39, 56, 34, 53, 46, 42, 50, 36, 29, 32];
         // число сдвигов ls i-ое
         private int[] _lSTable = [1, 1, 2, 2, 2, 2, 2, 2, 1, 2, 2, 2, 2, 2, 2, 1];
@@ -111,12 +112,73 @@ namespace Lab3DP
                 _pSwapTable[i]--;
 
             // получение ключа из файла
-            //ReadKey(keyFileName);
+            _key = ReadKey(keyFileName);
             // генерация ключей раундов
             GenerateRoundKeys();
         }
 
-        private void ReadKey(string keyFileName)
+        /// <summary>
+        /// Метод кодирования в режиме электронной кодовой книги.
+        /// </summary>
+        /// <param name="block"></param>
+        /// <param name="encryptionMode"></param>
+        /// <returns></returns>
+        public List<bool> ECB(List<bool> block, bool encryptionMode = true)
+        {
+            block = InitialPermutation(block, 1);
+            List<bool> blockL = block.Take(32).ToList();
+            List<bool> blockR = block.Skip(32).Take(32).ToList();
+
+            for (int i = 0; i < 16; i++)
+            {
+                List<bool> bufferR = new(blockR);
+
+                int roundNumber = encryptionMode ? i : 15 - i;
+                List<bool> bufferResult = GeneratingFunction(blockR, roundNumber);
+                blockR = blockL.Xor(bufferResult);
+
+                blockL = new List<bool>(bufferR);
+            }
+
+            block = [.. blockR, .. blockL];
+            block = InitialPermutation(block, -1);
+
+            return block;
+        }
+
+        /// <summary>
+        /// Метод кодирования в режиме RM.
+        /// </summary>
+        /// <param name="block"></param>
+        /// <param name="syncMsgFileName"></param>
+        /// <returns></returns>
+        public List<bool> SM(List<bool> block, string syncMsgFileName)
+        {
+            ulong gamma = ReadSyncMsg(syncMsgFileName);
+            int count = block.Count / _blockSize;
+            List<bool> encryptionText = new();
+
+            for(int i = 0; i < count; i++)
+            {
+                // Генерация гаммы
+                List<bool> gammaBits = GenerateGamma(gamma);
+                // Вычисление гаммы для шифрования
+                List<bool> encryptionBlock = ECB(gammaBits);
+
+                List<bool> newBlock = block.Skip(i * _blockSize).Take(_blockSize).ToList();
+                encryptionBlock = encryptionBlock.Xor(newBlock);
+                encryptionText.AddRange(encryptionBlock);
+
+                // Преобразование битового представления новой гаммы в байты, а затем в ulong для вычисления новой
+                byte[] buf = new byte[gammaBits.Count / 8];
+                new BitArray(gammaBits.ToArray()).CopyTo(buf, 0);
+                gamma = BitConverter.ToUInt64(buf, 0);
+            }
+
+            return encryptionText;
+        }
+
+        private byte[] ReadKey(string keyFileName)
         {
             FileStream keyFile = File.OpenRead(keyFileName);
             BinaryReader keyReader = new BinaryReader(keyFile);
@@ -136,12 +198,55 @@ namespace Lab3DP
                 readedKey.Add(readedKey[cycleKeyIndex]);
                 cycleKeyIndex++;
             }
-            _key = readedKey.ToArray();
-
+            
             keyReader.Close();
             keyFile.Close();
+
+            return readedKey.ToArray();
         }
 
+        private ulong ReadSyncMsg(string syncMsgFileName)
+        {
+            FileStream syncMsgFile = File.OpenRead(syncMsgFileName);
+            BinaryReader syncMsgReader = new BinaryReader(syncMsgFile);
+            byte[] syncMsgByte = new byte[1];
+
+            // считываем из файла ключевую последовательность байт
+            List<byte> readedSyncMsg = new List<byte>();
+            while (syncMsgReader.Read(syncMsgByte, 0, 1) != 0 && readedSyncMsg.Count < 8)
+            {
+                readedSyncMsg.Add(syncMsgByte[0]);
+            }
+
+            // зацикливаем ключ, если нужно
+            int cycleSyncMsgIndex = 0;
+            while (readedSyncMsg.Count < 8)
+            {
+                readedSyncMsg.Add(readedSyncMsg[cycleSyncMsgIndex]);
+                cycleSyncMsgIndex++;
+            }
+
+            syncMsgReader.Close();
+            syncMsgFile.Close();
+
+            return BitConverter.ToUInt64(readedSyncMsg.ToArray());
+        }
+
+        private List<bool> GenerateGamma(ulong seed)
+        {
+            ulong x = (ulong)new Random((int)seed).NextInt64();
+            byte[] bits64 = new byte[8];
+            for (int i = 0; i < 8; i++)
+            {
+                bits64[i] = (byte)x;
+                x >>= 8;
+            }
+            return new BitArray(bits64).ToBitsList();
+        }
+
+        /// <summary>
+        /// Метод генерации ключей раундов.
+        /// </summary>
         private void GenerateRoundKeys()
         {
             BitArray initKey = new(_key);
@@ -173,6 +278,12 @@ namespace Lab3DP
             }
         }
 
+        /// <summary>
+        /// Метод перестановки.
+        /// </summary>
+        /// <param name="block"> Блок битов. </param>
+        /// <param name="mode"> Режим перестановки. </param>
+        /// <returns> Список битов. </returns>
         private List<bool> InitialPermutation(List<bool> block, int mode)
         {
             List<bool> resbits = [];
@@ -184,6 +295,12 @@ namespace Lab3DP
             return resbits;
         }
 
+        /// <summary>
+        /// Метод реализующий работу образующей функции
+        /// </summary>
+        /// <param name="block"></param>
+        /// <param name="roundNumber"></param>
+        /// <returns></returns>
         private List<bool> GeneratingFunction(List<bool> block, int roundNumber)
         {
             List<bool> extended = [];
@@ -212,34 +329,28 @@ namespace Lab3DP
 
             return resultBlock;
         }
-
-        public List<bool> ECB(List<bool> block, bool encryptionMode = true)
+        
+        public void EncryptDecrypt(string inputFileName, string outputFileName, string syncMsgFileName)
         {
-            block = InitialPermutation(block, 1);
-            List<bool> blockL = block.Take(32).ToList();
-            List<bool> blockR = block.Skip(32).Take(32).ToList();
+            BinaryWriter binaryWriter = new BinaryWriter(File.Open(outputFileName, FileMode.Create));
+            byte[] inputStream = File.ReadAllBytes(inputFileName);
+            List<bool> inputBits = new BitArray(inputStream).ToBitsList();
 
-            for (int i = 0; i < 16; i++)
+            if (inputBits.Count % _blockSize > 0)
             {
-                List<bool> bufferR = new(blockR);
-
-                int roundNumber = encryptionMode ? i : 15 - i;
-                List<bool> bufferResult = GeneratingFunction(blockR, roundNumber);
-                blockR = blockL.Xor(bufferResult);
-
-                blockL = new List<bool>(bufferR);
+                int div = _blockSize - (inputBits.Count % _blockSize);
+                for (int i = 0; i < div; i++)
+                    inputBits.Add(false);
             }
 
-            block = [.. blockR, .. blockL];
-            block = InitialPermutation(block, -1);
+            List<bool> outputBits = SM(inputBits, syncMsgFileName);
 
-            return block;
-        }
+            int sizeByteArr = outputBits.Count / 8;
+            byte[] outputBytes = new byte[sizeByteArr];
+            new BitArray(outputBits.ToArray()).CopyTo(outputBytes, 0);
 
-        public List<bool> RM(List<bool> block)
-        {
-
-            return block;
+            binaryWriter.Write(outputBytes);
+            binaryWriter.Close();
         }
     }
 }

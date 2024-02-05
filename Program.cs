@@ -7,31 +7,15 @@ namespace Lab3DP
     {
         static void Main(string[] args)
         {
-            DES dES = new DES(string.Empty);
-            byte[] bit64 = [112, 102, 11, 10, 44, 5, 231, 199];
-            List<bool> bitVector = new BitArray(bit64).ToBitsList();
-            PrintBitVector(bitVector);
-
-            Console.WriteLine("\nЗашифровали DES");
-            List<bool> newBitVector = dES.ECB(bitVector);
-            PrintBitVector(newBitVector);
-
-            Console.WriteLine("\nРасшифруем DES");
-            bitVector.Clear();
-            bitVector = dES.ECB(newBitVector, false);
-            PrintBitVector(bitVector);
-
-        }
-
-        static void PrintBitVector(List<bool> bitVector)
-        {
-            for (int i = bitVector.Count - 1; i >= 0; i--) 
-            {
-                if (bitVector[i])
-                    Console.Write("1");
-                else 
-                    Console.Write("0");
-            }
+            string plain = "plain.txt";
+            string key = "key.txt";
+            string syncMsg = "syncMsg.txt";
+            Console.WriteLine("Шифруем с помощью DES");
+            DES dES = new DES(key);
+            dES.EncryptDecrypt(plain, "encryption.txt", syncMsg);
+            Console.WriteLine("Расшифровываем с помощью DES");
+            dES.EncryptDecrypt("encryption.txt", "decryption.txt", syncMsg);
+            Console.WriteLine("Конец");
         }
     }
 }
