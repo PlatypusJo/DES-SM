@@ -7,6 +7,9 @@ using System.Threading.Tasks;
 
 namespace Lab3DP
 {
+    /// <summary>
+    /// Методы расширения для BitArray и List<bool>.
+    /// </summary>
     public static class BitsListExtensions
     {
         public static List<bool> ToBitsList(this BitArray bitArr)
@@ -36,39 +39,34 @@ namespace Lab3DP
         public static List<bool> LeftShift(this List<bool> bits, int count)
         {
             BitArray bitArr = new BitArray(bits.ToArray());
-            bitArr.LeftShift(count);
-            return bitArr.ToBitsList();
+            return bitArr.LeftShift(count).ToBitsList();
         }
         
         public static List<bool> RightShift(this List<bool> bits, int count)
         {
             BitArray bitArr = new BitArray(bits.ToArray());
-            bitArr.RightShift(count);
-            return bitArr.ToBitsList();
+            return bitArr.RightShift(count).ToBitsList();
         }
 
         public static List<bool> Or(this List<bool> bits, List<bool> value)
         {
             BitArray bitArr1 = new BitArray(bits.ToArray());
             BitArray bitArr2 = new BitArray(value.ToArray());
-            bitArr1.Or(bitArr2);
-            return bitArr1.ToBitsList();
+            return bitArr1.Or(bitArr2).ToBitsList();
         }
         
         public static List<bool> And(this List<bool> bits, List<bool> value)
         {
             BitArray bitArr1 = new BitArray(bits.ToArray());
             BitArray bitArr2 = new BitArray(value.ToArray());
-            bitArr1.And(bitArr2);
-            return bitArr1.ToBitsList();
+            return bitArr1.And(bitArr2).ToBitsList();
         }
 
         public static List<bool> Xor(this List<bool> bits, List<bool> value)
         {
             BitArray bitArr1 = new BitArray(bits.ToArray());
             BitArray bitArr2 = new BitArray(value.ToArray());
-            bitArr1.Xor(bitArr2);
-            return bitArr1.ToBitsList();
+            return bitArr1.Xor(bitArr2).ToBitsList();
         }
     }
 }
